@@ -1,0 +1,130 @@
+package pl.revson.xPLAPI;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+
+public class XPLAPI extends JavaPlugin implements Listener {
+
+    private final String goldenCarrotName = "§6Marchewka PVP"; // Zmienna do przechowywania nazwy marchewki
+    private final Material goldenCarrotMaterial = Material.GOLDEN_CARROT; // Przechowywanie typu marchewki
+    private final long setRemovalDelay = 80; // Opóźnienie do usunięcia zestawu (4 sekundy = 80 ticków)
+
+    @Override
+    public void onEnable() {
+        // Rejestracja eventów
+        Bukkit.getPluginManager().registerEvents(this, this);
+    }
+
+    @EventHandler
+    public void onPlayerHoldItem(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        ItemStack newItem = player.getInventory().getItem(event.getNewSlot());
+
+        if (newItem != null && newItem.getType() == goldenCarrotMaterial) {
+            // Sprawdzenie, czy gracz już aktywował się z zestawem
+            if (hasPvPSet(player)) {
+                // Usunięcie zestawu po 4 sekundach (80 ticków)
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        removePvPSet(player);
+                    }
+                }.runTaskLater(this, setRemovalDelay); // Opóźnienie 80 ticków
+            } else {
+                // Dodaj opóźnienie 5 sekund (100 ticks = 5 sekund) do dania zestawu
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        givePvPSet(player);
+                    }
+                }.runTaskLater(this, 100); // 100 ticków
+            }
+        }
+    }
+
+    private boolean hasPvPSet(Player player) {
+        return player.getInventory().getHelmet() != null &&
+                player.getInventory().getChestplate() != null &&
+                player.getInventory().getLeggings() != null &&
+                player.getInventory().getBoots() != null &&
+                player.getInventory().getItem(0) != null; // Sprawdza, czy wszystkie elementy zestawu są w ekwipunku
+    }
+
+    private void givePvPSet(Player player) {
+        ItemStack helmet = new ItemStack(Material.DIAMOND_HELMET);
+        ItemStack chestplate = new ItemStack(Material.DIAMOND_CHESTPLATE);
+        ItemStack leggings = new ItemStack(Material.DIAMOND_LEGGINGS);
+        ItemStack boots = new ItemStack(Material.DIAMOND_BOOTS);
+        ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
+
+        // Ustawienie ekwipunku gracza
+        player.getInventory().setHelmet(helmet);
+        player.getInventory().setChestplate(chestplate);
+        player.getInventory().setLeggings(leggings);
+        player.getInventory().setBoots(boots);
+        player.getInventory().setItem(0, sword); // Ustawienie miecza w pierwszym slocie
+    }
+
+    private void removePvPSet(Player player) {
+        // Usunięcie zbroi i miecza
+        player.getInventory().setHelmet(null);
+        player.getInventory().setChestplate(null);
+        player.getInventory().setLeggings(null);
+        player.getInventory().setBoots(null);
+        player.getInventory().setItem(0, null); // Usunięcie miecza
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        giveGoldenCarrot(player);
+    }
+
+    private void giveGoldenCarrot(Player player) {
+        ItemStack goldenCarrot = new ItemStack(goldenCarrotMaterial, 1); // Stworzenie marchewki
+
+        // Ustawienie unikalnego identyfikatora
+        var meta = goldenCarrot.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(goldenCarrotName);
+            goldenCarrot.setItemMeta(meta);
+        }
+
+        // Dodanie marchewki do ekwipunku gracza
+        if (!hasGoldenCarrot(player)) {
+            player.getInventory().setItem(6, goldenCarrot); // Dodaj złotą marchewkę na 7. slot (indeks 6)
+        }
+    }
+
+    private boolean hasGoldenCarrot(Player player) {
+        ItemStack[] contents = player.getInventory().getContents();
+        for (ItemStack item : contents) {
+            if (item != null && item.getType() == goldenCarrotMaterial && item.getAmount() == 1) {
+                if (item.getItemMeta() != null && goldenCarrotName.equals(item.getItemMeta().getDisplayName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @EventHandler
+    public void onItemDrop(PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItemDrop().getItemStack();
+
+        if (item.getType() == goldenCarrotMaterial && item.getItemMeta() != null &&
+                goldenCarrotName.equals(item.getItemMeta().getDisplayName())) {
+            event.setCancelled(true); // Anulowanie wyrzucania
+        }
+    }
+}
